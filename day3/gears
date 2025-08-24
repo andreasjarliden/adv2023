@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+
+# Returns:
+# 467..114.. => 467 0 3 114 5 3
+# num index length...
+function numbersInLine {
+  line=$1
+  start=0
+  while [[ $line =~ ^([^0-9]*)([0-9]+) ]]; do
+    nPrefix=${#BASH_REMATCH[1]}
+    number=${BASH_REMATCH[2]}
+    index=$(( $start + $nPrefix ))
+    len=${#number}
+    start=$(( $start + ${#BASH_REMATCH[0]} ))
+    line=${line#"${BASH_REMATCH[0]}"}
+    echo $number $index $len
+  done
+}
+
+function symbolsInLine {
+  line=$1
+  start=0
+  while [[ $line =~ ^([0-9.]*)[^0-9.] ]]; do
+    nPrefix=${#BASH_REMATCH[1]}
+    index=$(( $start + $nPrefix ))
+    len=${#number}
+    start=$(( $start + ${#BASH_REMATCH[0]} ))
+    line=${line#"${BASH_REMATCH[0]}"}
+    echo $index
+  done
+}
+
+function isRangeAdjacantToIndex {
+  rangeStart=$1
+  len=$2;
+  index=$3
+  if (( index >= rangeStart && index <= (rangeStart + len) )); then
+    return 0
+  else
+    return -1
+  fi
+}
+
+function isRangeAdjacantToSymbols {
+  rangeStart=$1
+  len=$2
+  symbols="$3"
+  mapfile -t -d ' ' indices <<< "$symbols"
+  for i in ${indices[@]}; do
+    isRangeAdjacantToIndex $rangeStart $len $i
+    rc=$?
+    if [[ $rc -eq 0 ]]; then
+      return 0
+    fi
+  done
+  return -1
+}
+
+function numbersAdjacantToSymbols {
+  symbols="$1"
+  while read num index len; do
+    if [[ -z $num ]]; then 
+      return
+    fi
+    isRangeAdjacantToSymbols $(($index-1)) $(($len+2)) "$symbols"
+    rc=$?
+    if [[ $rc -eq 0 ]]; then
+      echo Yes! $num is adjacent
+    fi
+  done
+}
+
+read line1;
+read line2;
+symbols1=$(symbolsInLine "$line1")
+symbols2=$(symbolsInLine "$line2")
+symbols="$symbols1 $symbols2"
+numbers1=$(numbersInLine "$line1")
+echo First line symbols $symbols
+numbersAdjacantToSymbols "$symbols" <<<"$numbers1"
+
+# Process all the NUMBERS on the middle line as we don't want to count a
+# number multiple times.
+while read line3; do
+  echo line1 $line1
+  echo line2 $line2
+  echo line3 $line3
+  numbers2=$(numbersInLine "$line2")
+  symbols3=$(symbolsInLine "$line3")
+  symbols="$symbols1 $symbols2 $symbols3"
+  echo numbers on middle line: "$numbers2"
+  echo symbols:  $symbols
+  numbersAdjacantToSymbols "$symbols" <<<"$numbers2"
+  line1="$line2"
+  line2="$line3"
+  symbols1="$symbols2"
+  symbols2="$symbols3"
+  echo
+done
+

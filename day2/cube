@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+
+reqRed=12
+reqGreen=13
+reqBlue=14
+
+function countColor {
+  if [[ "$2" =~ ([0-9]+)\ $1 ]]; then
+    echo ${BASH_REMATCH[1]}
+  else
+    echo 0
+  fi
+}
+
+sum=0
+while read l; do
+  if [[ ! ($l =~ Game\ (.*):(.*)) ]]; then
+    echo Syntax error
+  fi
+  id=${BASH_REMATCH[1]}
+  l=${BASH_REMATCH[2]}
+  mapfile -t -d ';' sets <<< "$l"
+  maxRed=0
+  maxGreen=0
+  maxBlue=0
+  for s in "${sets[@]}"; do
+    nRed=$(countColor "red" "$s")
+    nGreen=$(countColor "green" "$s")
+    nBlue=$(countColor "blue" "$s")
+    maxRed=$(( nRed > maxRed ? nRed : maxRed ))
+    maxGreen=$(( nGreen > maxGreen ? nGreen : maxGreen ))
+    maxBlue=$(( nBlue > maxBlue ? nBlue : maxBlue ))
+  done
+  if (( $maxRed <= $reqRed && $maxGreen <= $reqGreen && $maxBlue <= $reqBlue )); then
+    sum=$(( $sum + $id ))
+    echo Game $id is OK
+  fi
+  power=$(( $maxRed * $maxGreen * $maxBlue ))
+  echo power $power
+  sumPower=$(( $sumPower + $power ))
+done
+echo sum $sum
+echo sumPower $sumPower

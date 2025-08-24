@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+while read l; do
+  # Regexp find the first digit
+  if [[ $l =~ [0-9] ]]; then
+    firstDigit=${BASH_REMATCH[0]}
+  else
+    echo Incorrect syntax
+  fi
+
+  # Regexp find the last digit. The .* is greedy.
+  if [[ $l =~ .*([0-9]) ]]; then
+    lastDigit=${BASH_REMATCH[1]}
+  else
+    echo Incorrect syntax
+  fi
+
+  number=$firstDigit$lastDigit
+  echo $number
+  sum=$(($sum + $number))
+done
+echo sum $sum

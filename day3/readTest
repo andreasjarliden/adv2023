@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+function testread {
+  while read token1 token2; do
+    echo 1: $token1 2: $token2
+  done
+}
+
+testread 

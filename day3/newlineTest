@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+function outputsNewline {
+  echo this is line 1
+  echo this is line 2
+}
+
+output=$(outputsNewline)
+echo "$output"

@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+
+digits=(one two three four five six seven eight nine)
+
+function substituteSpelledDigits() {
+  l=$1
+  for ((i=1; i<=9; ++i)); do
+    l=${l//${digits[i-1]}/$i}
+  done
+  echo $l
+}
+
+while read l; do
+  # Note: can't simply replace spelled digits first
+  # eightwothree should be 8wo3, not eigh23
+  
+  echo $l
+
+  # Regexp find the first digit
+  if [[ $l =~ (one|two|three|four|five|six|seven|eight|nine|[0-9]) ]]; then
+    firstDigit=${BASH_REMATCH[0]}
+  else
+    echo Incorrect syntax
+  fi
+
+  # Regexp find the last digit. The .* is greedy.
+  if [[ $l =~ .*(one|two|three|four|five|six|seven|eight|nine|[0-9]) ]]; then
+    lastDigit=${BASH_REMATCH[1]}
+  else
+    echo Incorrect syntax
+  fi
+  firstDigit=$(substituteSpelledDigits $firstDigit)
+  lastDigit=$(substituteSpelledDigits $lastDigit)
+
+  number=$firstDigit$lastDigit
+  echo $number
+  sum=$(($sum + $number))
+done
+echo sum $sum
