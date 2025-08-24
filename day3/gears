@@ -4,8 +4,8 @@
 # 467..114.. => 467 0 3 114 5 3
 # num index length...
 function numbersInLine {
-  line=$1
-  start=0
+  local line=$1
+  local start=0
   while [[ $line =~ ^([^0-9]*)([0-9]+) ]]; do
     nPrefix=${#BASH_REMATCH[1]}
     number=${BASH_REMATCH[2]}
@@ -17,9 +17,11 @@ function numbersInLine {
   done
 }
 
+# Example:
+# 617*.a. => 3 5
 function symbolsInLine {
-  line=$1
-  start=0
+  local line=$1
+  local start=0
   while [[ $line =~ ^([0-9.]*)[^0-9.] ]]; do
     nPrefix=${#BASH_REMATCH[1]}
     index=$(( $start + $nPrefix ))
@@ -30,41 +32,38 @@ function symbolsInLine {
   done
 }
 
-function isRangeAdjacantToIndex {
-  rangeStart=$1
-  len=$2;
-  index=$3
-  if (( index >= rangeStart && index <= (rangeStart + len) )); then
-    return 0
-  else
-    return -1
-  fi
+function isIndexInRange {
+  local rangeStart=$1
+  local len=$2;
+  local index=$3
+  (( index >= rangeStart && index < (rangeStart + len) ))
 }
 
 function isRangeAdjacantToSymbols {
-  rangeStart=$1
-  len=$2
-  symbols="$3"
+  local rangeStart=$1
+  local len=$2
+  local symbols="$3"
   mapfile -t -d ' ' indices <<< "$symbols"
   for i in ${indices[@]}; do
-    isRangeAdjacantToIndex $rangeStart $len $i
-    rc=$?
-    if [[ $rc -eq 0 ]]; then
-      return 0
+    if isIndexInRange $rangeStart $len $i; then
+      true
+      return
     fi
   done
-  return -1
+  false
 }
 
+# $1: list of indices for symbols
+# STDIN: <num1> <index1> <len1>
+#        <num2> <index2> <len2>...
 function numbersAdjacantToSymbols {
-  symbols="$1"
+  local symbols="$1"
   while read num index len; do
     if [[ -z $num ]]; then 
       return
     fi
-    isRangeAdjacantToSymbols $(($index-1)) $(($len+2)) "$symbols"
-    rc=$?
-    if [[ $rc -eq 0 ]]; then
+    if isRangeAdjacantToSymbols $(($index-1)) $(($len+2)) "$symbols"; then
+      RESULT_NUMBERS+="$num "
       echo Yes! $num is adjacent
     fi
   done
@@ -82,19 +81,24 @@ numbersAdjacantToSymbols "$symbols" <<<"$numbers1"
 # Process all the NUMBERS on the middle line as we don't want to count a
 # number multiple times.
 while read line3; do
-  echo line1 $line1
-  echo line2 $line2
-  echo line3 $line3
   numbers2=$(numbersInLine "$line2")
   symbols3=$(symbolsInLine "$line3")
   symbols="$symbols1 $symbols2 $symbols3"
-  echo numbers on middle line: "$numbers2"
-  echo symbols:  $symbols
   numbersAdjacantToSymbols "$symbols" <<<"$numbers2"
   line1="$line2"
   line2="$line3"
   symbols1="$symbols2"
   symbols2="$symbols3"
-  echo
 done
 
+symbols="$symbols1 $symbols2"
+numbers2=$(numbersInLine "$line2")
+numbersAdjacantToSymbols "$symbols" <<<"$numbers2"
+
+echo numbers $RESULT_NUMBERS
+declare -i sum=0
+declare -i n
+for n in ${RESULT_NUMBERS[@]}; do
+  sum+=$n
+done
+echo sum $sum
