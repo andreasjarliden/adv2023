@@ -1,0 +1,125 @@
+#!/usr/bin/env bash
+
+RESULT_NUMBERS=()
+
+# Returns:
+# 467..114.. => 467 0 3 114 5 3
+# num index length...
+function numbersInLine {
+  local line=$1
+  local start=0
+  while [[ $line =~ ^([^0-9]*)([0-9]+) ]]; do
+    nPrefix=${#BASH_REMATCH[1]}
+    number=${BASH_REMATCH[2]}
+    index=$(( $start + $nPrefix ))
+    len=${#number}
+    start=$(( $start + ${#BASH_REMATCH[0]} ))
+    line=${line#"${BASH_REMATCH[0]}"}
+    echo $number $index $len
+  done
+}
+
+# Example:
+# 617*.a. => 3 5
+function symbolsInLine {
+  local line=$1
+  local start=0
+  while [[ $line =~ ^([0-9.]*)[^0-9.] ]]; do
+    nPrefix=${#BASH_REMATCH[1]}
+    index=$(( $start + $nPrefix ))
+    len=${#number}
+    start=$(( $start + ${#BASH_REMATCH[0]} ))
+    line=${line#"${BASH_REMATCH[0]}"}
+    echo $index
+  done
+}
+
+function isIndexInRange {
+  local rangeStart=$1
+  local len=$2;
+  local index=$3
+  (( index >= rangeStart && index < (rangeStart + len) ))
+}
+
+function isRangeAdjacantToSymbols {
+  local rangeStart=$1
+  local len=$2
+  local symbols="$3"
+  mapfile -t -d ' ' indices <<< "$symbols"
+  for i in ${indices[@]}; do
+    if isIndexInRange $rangeStart $len $i; then
+      true
+      return
+    fi
+  done
+  false
+}
+
+# $1: index of symbol
+# STDIN: <num1> <index1> <len1>
+#        <num2> <index2> <len2>...
+function checkSymbol {
+  local symbol="$1"
+  local c
+  declare -i c=0
+  declare -i p=1
+  echo checkSymbol $symbol >&2
+  while read num index len; do
+    if [[ -z $num ]]; then 
+      continue
+    fi
+    echo Checking number $num >&2
+    if isIndexInRange $(($index-1)) $(($len+2)) "$symbol"; then
+      c+=1
+      p=$(( p * $num ))
+      echo Yes! $num is adjacent >&2
+    fi
+  done
+  echo Symbol was adjacant to $c numbers >&2
+  if (( c == 2)); then
+    echo Adjacant to 2 numbers with product $p >&2
+    RESULT_NUMBERS+=($p)
+    echo RESULT_NUMBERS is now ${RESULT_NUMBERS[@]} >&2
+  fi
+}
+
+function checkSymbols {
+  local symbols="$1"
+  local numbers="$2"
+  for i in $symbols; do
+    echo Checking symbol at $i agains numbers "$numbers"
+    checkSymbol "$i" <<< "$numbers"
+  done
+}
+
+read line1;
+read line2;
+symbols1=$(symbolsInLine "$line1")
+symbols2=$(symbolsInLine "$line2")
+numbers1=$(numbersInLine "$line1")
+numbers2=$(numbersInLine "$line2")
+checkSymbols "$symbols1" "$numbers1 $numbers2"
+
+# Process all the SYMBOLS and check for two adjacent numbers.
+while read line3; do
+  numbers3=$(numbersInLine "$line3")
+  symbols2=$(symbolsInLine "$line2")
+  numbers="$numbers1"$'\n'"$numbers2"$'\n'"$numbers3"
+  checkSymbols "$symbols2" "$numbers"
+  line1="$line2"
+  line2="$line3"
+  numbers1="$numbers2"
+  numbers2="$numbers3"
+  echo ------
+done
+
+symbols=$(symbolsInLine "$line3")
+checkSymbols "$symbols" "$numbers2 $numberrs3"
+
+echo products ${RESULT_NUMBERS[@]}
+declare -i sum=0
+declare -i n
+for n in ${RESULT_NUMBERS[@]}; do
+  sum+=$n
+done
+echo sum $sum

@@ -1,0 +1,12 @@
+If you use echo in a function foo for logging and you call it as r=$(foo) then
+you won't see the logging.
+
+To iterate over a string of values use
+tokens="foo bar"
+for $t in $tokens; do ...  # DON'T quote $tokens or it will consider it as only a single token
+
+If you update a global variable from a function foo and foo was called using a
+subshell, then the update won't stick! Assign the result from a function creates a subshell:
+
+res=$(foo) # This runs foo in a subshell!
+
