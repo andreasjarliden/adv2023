@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+
+declare -i TOTAL_POINTS=0
+
+# input STDIN
+# output: cardPart, winnersPart, numbersPart
+function splitLine {
+  read -d ':' cardPart
+  read -d '|' winnersString
+  read numbersString
+}
+
+function processCard {
+  local line="$1"
+  # splits line into *winners* and *numbers*
+  splitLine <<< "$line"
+  declare -a winners
+  for w in $winnersString; do
+    winners[w]=true
+  done
+  declare -i c=0
+  for n in $numbersString; do
+    if [[ ${winners[$n]} ]]; then
+      c+=1
+    fi
+  done
+  if (( c > 1 )); then
+    c=$(( 1 << (c-1) ))
+  fi
+  echo "$line    Points $c"
+  TOTAL_POINTS+=$c
+}
+
+while read line; do
+  processCard "$line"
+done
+echo Total points $TOTAL_POINTS
