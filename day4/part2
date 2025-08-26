@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+
+declare -i copies
+
+# input STDIN
+# output: cardPart, winnersPart, numbersPart
+function splitLine {
+  read -d ':' cardPart
+  read -d '|' winnersString
+  read numbersString
+}
+
+function processCard {
+  local line="$1"
+  # splits line into *winners* and *numbers*
+  splitLine <<< "$line"
+  winners=()
+  for w in $winnersString; do
+    winners[w]=true
+  done
+  declare -i c=0
+  for n in $numbersString; do
+    if [[ ${winners[$n]} ]]; then
+      c+=1
+    fi
+  done
+  declare -i copiesOfCurrentCard=${copies[card]}
+  echo card $card has $copiesOfCurrentCard copies and $c matching numbers
+  if (( c > 0 )); then
+    for (( i=card+1; i <= card+c; ++i )); do
+      echo -n "  "card $i had ${copies[i]} copies but increasing with $copiesOfCurrentCard to 
+      copies[i]=$(( copies[i] + copiesOfCurrentCard ))
+      echo " ${copies[i]}"
+    done
+  fi
+}
+
+declare -i card=1
+while read line; do
+  echo -n card $card has ${copies[card]} copies initially but increasing by one to 
+  copies[card]=$(( copies[card] + 1 ))
+  echo " " ${copies[card]} 
+  processCard "$line"
+  card+=1
+done
+
+declare -i sum
+for c in ${!copies[@]}; do
+  echo card $c copies ${copies[$c]}
+  sum+=${copies[$c]}
+done
+echo SUM $sum
