@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+
+declare LOGGING=true
+declare -A maps
+
+function log {
+  if [[ $LOGGING ]]; then
+    echo $@ >&2
+  fi
+}
+
+# STDIN -> indexed array seeds
+# STDIN: seeds: 12 34 56...
+function parseSeeds {
+  local seedsLabel
+  read -d ':' seedsLabel
+  read -a seeds
+}
+
+function lookUpIndexInMap {
+  index="$1"
+  map="$2"
+  log index $index
+  while read range; do
+    log checking $index against range $range
+    read d s len <<< "$range"
+    if (( index >= s && index < s + len )); then
+      mappedIndex=$((index - s + d))
+      log mapping to $mappedIndex
+      echo $mappedIndex
+      return
+    fi
+  done <<< "$map"
+  log $index not found in map.  Returning value.
+  echo $index
+}
+
+function recursiveLookupSeedIndex {
+  seed="$1"
+  soil=$(lookUpIndexInMap $seed "${maps['seed:soil']}")
+  fertilizer=$(lookUpIndexInMap $soil "${maps['soil:fertilizer']}")
+  water=$(lookUpIndexInMap $fertilizer "${maps['fertilizer:water']}")
+  light=$(lookUpIndexInMap $water "${maps['water:light']}")
+  temperature=$(lookUpIndexInMap $light "${maps['light:temperature']}")
+  humidity=$(lookUpIndexInMap $temperature "${maps['temperature:humidity']}")
+  location=$(lookUpIndexInMap $humidity "${maps['humidity:location']}")
+  echo $location
+}
+
+function parseMap {
+  # Ignore any empty lines
+  local l
+  while read l && [[ -z $l ]]; do
+    :
+  done
+
+  # Header line now in l
+  # Parse the headerline to determine source and dest
+  log Header line is $l
+  if [[ ! $l =~ (.*)-to-(.*)\ map: ]]; then
+    if [[ $l ]]; then
+      echo "Syntax error reading map" >&2
+    fi
+    return 1
+  fi
+  local s=${BASH_REMATCH[1]}
+  local d=${BASH_REMATCH[2]}
+  local maplabel="$s:$d"
+
+  # Read the ranges
+  local map
+  until read l && [[ -z $l ]]; do
+    echo $l
+    map="$map$l"$'\n'
+  done
+  printf 'Parsed map %s' "$map" >&2
+  #echo "$map"
+  echo maplabel $maplabel
+  maps[$maplabel]="$map"
+}
+
+parseSeeds
+echo Seeds: ${seeds[@]}
+
+while parseMap; do : ; done
+echo parsed all maps
+
+echo
+minLocation=$(recursiveLookupSeedIndex "${seeds[0]}")
+for s in "${seeds[@]}"; do
+  location=$(recursiveLookupSeedIndex $s)
+  echo location $location
+  if (( location < minLocation )); then
+    minLocation=$location
+  fi
+done
+echo MinLocation $minLocation
+
