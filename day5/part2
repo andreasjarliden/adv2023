@@ -1,12 +1,27 @@
 #!/usr/bin/env bash
 
-# declare LOGGING=true
+#declare LOGGING=true
+
 declare -A maps
 
 function log {
   if [[ $LOGGING ]]; then
     echo $@ >&2
   fi
+}
+
+# arg1: name of variable to print
+function printVar {
+  declare -n varRef
+  varRef=$1
+  local varName=$1
+  printf '%s=%s\n' "$varName" "$varRef"
+}
+
+function sortLineUnique {
+  local sl
+  sl=$(sort -n -u <<< "${1// /$'\n'}")
+  echo $sl
 }
 
 # STDIN -> indexed array seeds
@@ -18,8 +33,8 @@ function parseSeeds {
 }
 
 function lookUpIndexInMap {
-  index="$1"
-  map="$2"
+  local index="$1"
+  local map="$2"
   log index $index
   while read range; do
     log checking $index against range $range
@@ -27,12 +42,21 @@ function lookUpIndexInMap {
     if (( index >= s && index < s + len )); then
       mappedIndex=$((index - s + d))
       log mapping to $mappedIndex
-      echo $mappedIndex
+      echo -n $mappedIndex
       return
     fi
   done <<< "$map"
   log $index not found in map.  Returning value.
-  echo $index
+  echo -n $index
+}
+
+function lookUpIndicesInMap {
+  local indices="$1"
+  local map="$2"
+  for i in $indices; do
+    lookUpIndexInMap "$i" "$map"
+    echo -n ' '
+  done
 }
 
 function extremeSourcePointsInMap {
@@ -49,12 +73,13 @@ function recursiveLookupSeedIndex {
   seed="$1"
   soil=$(lookUpIndexInMap $seed "${maps['seed:soil']}")
   fertilizer=$(lookUpIndexInMap $soil "${maps['soil:fertilizer']}")
-  water=$(lookUpIndexInMap $fertilizer "${maps['fertilizer:water']}")
-  light=$(lookUpIndexInMap $water "${maps['water:light']}")
-  temperature=$(lookUpIndexInMap $light "${maps['light:temperature']}")
-  humidity=$(lookUpIndexInMap $temperature "${maps['temperature:humidity']}")
-  location=$(lookUpIndexInMap $humidity "${maps['humidity:location']}")
-  echo $location
+  echo $fertilizer
+  # water=$(lookUpIndexInMap $fertilizer "${maps['fertilizer:water']}")
+  # light=$(lookUpIndexInMap $water "${maps['water:light']}")
+  # temperature=$(lookUpIndexInMap $light "${maps['light:temperature']}")
+  # humidity=$(lookUpIndexInMap $temperature "${maps['temperature:humidity']}")
+  # location=$(lookUpIndexInMap $humidity "${maps['humidity:location']}")
+  # echo $location
 }
 
 function parseMap {
@@ -90,7 +115,7 @@ function parseMap {
   printf 'Parsed map:\n%s' "$map" >&2
   printf 'Parsed rmap:\n%s' "$rmap" >&2
   maps["$s:$d"]="$map"
-  maps["$d:$s"]="$marp"
+  maps["$d:$s"]="$rmap"
 }
 
 function combineMaps {
@@ -101,13 +126,30 @@ function combineMaps {
   rmap1="${maps[$via:$from]}"
   map2="${maps[$via:$to]}"
   viaExtremes=$(extremeSourcePointsInMap "$map2")
+  viaExtremesInFrom=$(lookUpIndicesInMap "$viaExtremes" "$rmap1")
   fromExtremes=$(extremeSourcePointsInMap "$map1")
-  log via extreme points: $viaExtremes
-  for i in $viaExtremes; do
-    ri=$(lookUpIndexInMap "$i" "$rmap1")
-    echo $ri
+  allFromExtremes="$fromExtremes $viaExtremesInFrom"
+  sortedAllFromExtremes=$(sortLineUnique "$allFromExtremes")
+  printVar "viaExtremes" >&2
+  printVar "viaExtremesInFrom" >&2
+  printVar "fromExtremes" >&2
+  printVar "allFromExtremes" >&2
+  printVar "sortedAllFromExtremes" >&2
+  mapfile -d ' ' fromArray <<< "$sortedAllFromExtremes"
+  declare -i count=${#fromArray[@]}
+  declare -i index
+  for (( i = 0; i < count-1; i+=1 )); do
+    len=$((fromArray[i+1] - fromArray[i]))
+    from=${fromArray[$i]}
+    via=$(lookUpIndexInMap "$from" "$map1")
+    to=$(lookUpIndexInMap "$via" "$map2")
+    # printVar i
+    # printVar len
+    # printVar from
+    # printVar via
+    # printVar to
+    echo $to $from $len
   done
-  echo "${fromExtremes// /$'\n'}"
 }
 
 parseSeeds
@@ -120,11 +162,20 @@ echo -n extremeSourcePointsInMap seed soil
 extremeSourcePointsInMap "${maps["seed:soil"]}"
 echo
 
-sourcepoints=$(combineMaps "seed" "soil" "fertilizer")
-echo $sourcePoints
-echo
-echo sorted:
-sort -n <<<"$sourcepoints"
+cmap=$(combineMaps "seed" "soil" "fertilizer")
+printVar cmap
+for (( i=0; i<99; i+=1 )); do
+  f=$(lookUpIndexInMap "$i" "$cmap")
+  r=$(recursiveLookupSeedIndex "$i")
+  echo seed $i is mapped to fertilizer $f via combined map $r via recursive lookup
+done
+
+# sourcepoints=$(combineMaps "seed" "soil" "fertilizer")
+# echo $sourcePoints
+# echo
+# echo sorted:
+# sort -n <<<"$sourcepoints"
+
 
 # echo
 # minLocation=$(recursiveLookupSeedIndex "${seeds[0]}")
