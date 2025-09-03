@@ -20,7 +20,10 @@ function printVar {
 
 function sortLineUnique {
   local sl
-  sl=$(sort -n -u <<< "${1// /$'\n'}")
+  # Remove extra spaces. Extra spaces turns into blank lines which causes 0 to
+  # be removed with sort -n -u
+  l=$(echo $1)
+  sl=$(sort -n -u <<< "${l// /$'\n'}")
   echo $sl
 }
 
@@ -61,10 +64,13 @@ function lookUpIndicesInMap {
 
 function extremeSourcePointsInMap {
   map="$1"
+  log extremeSourcePointsInMap "$map"
   while read range; do
+    log range "$range"
     read d s len <<< "$range"
     [[ -z $d || -z $s ]] && return
     echo -n $s $((s + len - 1)) ' '
+    log adding points $s $((s + len - 1)) ' '
   done <<< "$map"
 }
 
@@ -118,6 +124,15 @@ function parseMap {
   maps["$d:$s"]="$rmap"
 }
 
+# lowerA upperA lowerB upperB ->
+# lowerA-1 lowerA upperA upperA+1 lowerB-1 lowerB upperB upperB+1 ...
+function extend {
+  mapfile -d ' ' elements <<< "$1"
+  for ((i = 0; i < ${#elements[@]}; i+=2)); do
+    echo -n $((${elements[i]}-1)) ${elements[i]} ${elements[i+1]} $((${elements[i+1]}+1)) ' ' 
+  done
+}
+
 function combineMaps {
   from="$1"
   via="$2"
@@ -125,10 +140,14 @@ function combineMaps {
   map1="${maps[$from:$via]}"
   rmap1="${maps[$via:$from]}"
   map2="${maps[$via:$to]}"
+  log Calling extremeSourcePointsInMap map2
   viaExtremes=$(extremeSourcePointsInMap "$map2")
   viaExtremesInFrom=$(lookUpIndicesInMap "$viaExtremes" "$rmap1")
+  # The backprojected internals might "interupt" original ranges so add points
+  # outside of the backprojected ranges
+  extendedViaExtremesInFrom=$(extend "$viaExtremesInFrom")
   fromExtremes=$(extremeSourcePointsInMap "$map1")
-  allFromExtremes="$fromExtremes $viaExtremesInFrom"
+  allFromExtremes="$fromExtremes $extendedViaExtremesInFrom"
   sortedAllFromExtremes=$(sortLineUnique "$allFromExtremes")
   printVar "viaExtremes" >&2
   printVar "viaExtremesInFrom" >&2
@@ -170,6 +189,8 @@ for (( i=0; i<99; i+=1 )); do
   echo seed $i is mapped to fertilizer $f via combined map $r via recursive lookup
 done
 
+# TODO Seed 52 fails
+
 # sourcepoints=$(combineMaps "seed" "soil" "fertilizer")
 # echo $sourcePoints
 # echo
@@ -193,6 +214,25 @@ done
 #   done
 # done
 # echo MinLocation $minLocation
+#
+#
+#
+
+# Seed->soil map
+#   50-97 -> 52-99
+#   98-99 -> 50-51
+# soil-to-fertilizer map
+#   0-14  -> 39-53
+#   15-51 -> 0-36
+#   52-53 -> 37-38
+# soil (via) extremes 0 14 15 51 52 53
+# soil (via)->seed (from) extremes 0->0 14->14 15->15 51->99 52->50 53->51
+# soil (via)->seed (from) extremes 0 14 15 99 50 51
+# Seed 52 -> soil 54 -> 39
+#
+# backProjected fromExtremes: 0 14 15  50 51 99
+# original fromExtremes: 50 97 98 99
+#
 #
 #
 #
