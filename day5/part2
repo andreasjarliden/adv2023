@@ -79,13 +79,12 @@ function recursiveLookupSeedIndex {
   seed="$1"
   soil=$(lookUpIndexInMap $seed "${maps['seed:soil']}")
   fertilizer=$(lookUpIndexInMap $soil "${maps['soil:fertilizer']}")
-  echo $fertilizer
-  # water=$(lookUpIndexInMap $fertilizer "${maps['fertilizer:water']}")
-  # light=$(lookUpIndexInMap $water "${maps['water:light']}")
-  # temperature=$(lookUpIndexInMap $light "${maps['light:temperature']}")
-  # humidity=$(lookUpIndexInMap $temperature "${maps['temperature:humidity']}")
-  # location=$(lookUpIndexInMap $humidity "${maps['humidity:location']}")
-  # echo $location
+  water=$(lookUpIndexInMap $fertilizer "${maps['fertilizer:water']}")
+  light=$(lookUpIndexInMap $water "${maps['water:light']}")
+  temperature=$(lookUpIndexInMap $light "${maps['light:temperature']}")
+  humidity=$(lookUpIndexInMap $temperature "${maps['temperature:humidity']}")
+  location=$(lookUpIndexInMap $humidity "${maps['humidity:location']}")
+  echo $location
 }
 
 function parseMap {
@@ -134,41 +133,47 @@ function extend {
 }
 
 function combineMaps {
-  from="$1"
-  via="$2"
-  to="$3"
+  local from="$1"
+  local via="$2"
+  local to="$3"
   map1="${maps[$from:$via]}"
   rmap1="${maps[$via:$from]}"
   map2="${maps[$via:$to]}"
-  log Calling extremeSourcePointsInMap map2
   viaExtremes=$(extremeSourcePointsInMap "$map2")
   viaExtremesInFrom=$(lookUpIndicesInMap "$viaExtremes" "$rmap1")
   # The backprojected internals might "interupt" original ranges so add points
   # outside of the backprojected ranges
   extendedViaExtremesInFrom=$(extend "$viaExtremesInFrom")
   fromExtremes=$(extremeSourcePointsInMap "$map1")
-  allFromExtremes="$fromExtremes $extendedViaExtremesInFrom"
+  extendedFromExtremes=$(extend "$fromExtremes")
+  allFromExtremes="$extendedFromExtremes $extendedViaExtremesInFrom"
   sortedAllFromExtremes=$(sortLineUnique "$allFromExtremes")
-  printVar "viaExtremes" >&2
-  printVar "viaExtremesInFrom" >&2
-  printVar "fromExtremes" >&2
-  printVar "allFromExtremes" >&2
-  printVar "sortedAllFromExtremes" >&2
+  # printVar "viaExtremes" >&2
+  # printVar "viaExtremesInFrom" >&2
+  # printVar "fromExtremes" >&2
+  # printVar "extendedFromExtremes" >&2
+  # printVar "allFromExtremes" >&2
+  # printVar "sortedAllFromExtremes" >&2
   mapfile -d ' ' fromArray <<< "$sortedAllFromExtremes"
   declare -i count=${#fromArray[@]}
   declare -i index
+  cmap=""
+  rcmap=""
   for (( i = 0; i < count-1; i+=1 )); do
     len=$((fromArray[i+1] - fromArray[i]))
-    from=${fromArray[$i]}
-    via=$(lookUpIndexInMap "$from" "$map1")
-    to=$(lookUpIndexInMap "$via" "$map2")
+    fromIndex=${fromArray[$i]}
+    viaIndex=$(lookUpIndexInMap "$fromIndex" "$map1")
+    toIndex=$(lookUpIndexInMap "$viaIndex" "$map2")
     # printVar i
     # printVar len
     # printVar from
     # printVar via
     # printVar to
-    echo $to $from $len
+    cmap="$toIndex $fromIndex $len"$'\n'"$cmap"
+    rcmap="$fromIndex $toIndex $len"$'\n'"$rcmap"
   done
+  maps["$from:$to"]="$cmap"
+  maps["$to:$from"]="$rcmap"
 }
 
 parseSeeds
@@ -177,19 +182,26 @@ echo Seeds: ${seeds[@]}
 while parseMap; do : ; done
 echo parsed all maps
 
-echo -n extremeSourcePointsInMap seed soil 
-extremeSourcePointsInMap "${maps["seed:soil"]}"
-echo
-
-cmap=$(combineMaps "seed" "soil" "fertilizer")
+combineMaps "seed" "soil" "fertilizer"
+echo 1
+combineMaps "seed" "fertilizer" "water"
+echo 2
+combineMaps "seed" "water" "light"
+echo 3
+combineMaps "seed" "light" "temperature"
+echo 4
+combineMaps "seed" "temperature" "humidity"
+echo 5
+combineMaps "seed" "humidity" "location"
+echo 6
+cmap=${maps["seed:location"]}
 printVar cmap
 for (( i=0; i<99; i+=1 )); do
   f=$(lookUpIndexInMap "$i" "$cmap")
   r=$(recursiveLookupSeedIndex "$i")
-  echo seed $i is mapped to fertilizer $f via combined map $r via recursive lookup
+  echo seed $i is mapped to water $f via combined map $r via recursive lookup
 done
 
-# TODO Seed 52 fails
 
 # sourcepoints=$(combineMaps "seed" "soil" "fertilizer")
 # echo $sourcePoints
